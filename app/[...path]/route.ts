@@ -8,78 +8,61 @@
  * - /postonus.com/callback (defaults to https)
  */
 
-function createResponse(
-  body: string | object,
-  status: number,
-  headers?: Record<string, string>
-): Response {
-  const isJson = typeof body === 'object';
-  const response = new Response(isJson ? JSON.stringify(body) : body, {
-    status,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      ...(isJson
-        ? { 'Content-Type': 'application/json' }
-        : { 'Content-Type': 'text/html; charset=utf-8' }),
-      ...headers,
-    },
-  });
-  return response;
-}
+// Use Edge Runtime for faster cold starts and lower latency
+export const runtime = 'edge';
 
+// Pre-allocated error response to reduce allocations
+const ERROR_RESPONSE = new Response(JSON.stringify({ error: 'Invalid redirect URL' }), {
+  status: 400,
+  headers: {
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+  },
+});
+
+// Optimized localhost check using early returns
 function isLocalhost(host: string): boolean {
+  if (host === 'localhost' || host === '127.0.0.1' || host === '::1') {
+    return true;
+  }
+  // Check prefixes more efficiently
   return (
-    host === 'localhost' ||
-    host === '127.0.0.1' ||
-    host === '::1' ||
-    host.startsWith('localhost:') ||
-    host.startsWith('127.0.0.1:') ||
-    host.startsWith('[::1]:')
+    host.startsWith('localhost:') || host.startsWith('127.0.0.1:') || host.startsWith('[::1]:')
   );
 }
 
+// Optimized URL builder with reduced allocations
 function buildRedirectUrl(pathSegments: string[]): string | null {
-  if (pathSegments.length === 0) {
+  const len = pathSegments.length;
+  if (len === 0) {
     return null;
   }
 
-  // Check if first segment is a scheme
   const firstSegment = pathSegments[0];
-  let scheme: string;
-  let remainingPath: string[];
 
+  // Check for explicit scheme first (most common case)
   if (firstSegment === 'http' || firstSegment === 'https') {
-    // Explicit scheme provided: /http/... or /https/...
-    scheme = firstSegment;
-    remainingPath = pathSegments.slice(1);
-  } else {
-    // No explicit scheme, need to determine default
-    const target = pathSegments.join('/');
-
-    // Check if it already has a scheme (ignore defaults if present)
-    if (target.includes('://')) {
-      // Scheme already present, use as-is
-      return target;
+    // Explicit scheme: reconstruct URL
+    if (len === 1) return null; // Need at least host
+    // Optimize: avoid join if single remaining segment
+    if (len === 2) {
+      return `${firstSegment}://${pathSegments[1]}`;
     }
-
-    // Check if it looks like localhost (default to http)
-    if (isLocalhost(firstSegment)) {
-      scheme = 'http';
-      remainingPath = pathSegments;
-    } else {
-      // Domain name (default to https)
-      scheme = 'https';
-      remainingPath = pathSegments;
-    }
+    return `${firstSegment}://${pathSegments.slice(1).join('/')}`;
   }
 
-  // Reconstruct the URL
-  const hostAndPath = remainingPath.join('/');
+  // Check if already contains scheme (fast path)
+  // Use first segment as quick check, then full join if needed
+  if (firstSegment.includes('://')) {
+    // Optimize: avoid join if single segment
+    return len === 1 ? firstSegment : pathSegments.join('/');
+  }
 
-  // Add scheme prefix
-  return `${scheme}://${hostAndPath}`;
+  // Determine scheme based on host
+  const scheme = isLocalhost(firstSegment) ? 'http' : 'https';
+  return `${scheme}://${pathSegments.join('/')}`;
 }
 
 export async function GET(
@@ -87,44 +70,57 @@ export async function GET(
   { params }: { params: Promise<{ path: string | string[] }> }
 ) {
   const { path } = await params;
-  // Normalize to array (catch-all routes should always be array, but handle edge cases)
-  const pathSegments = Array.isArray(path) ? path : path ? [path] : [];
+
+  // Normalize to array (optimized path)
+  let pathSegments: string[];
+  if (Array.isArray(path)) {
+    pathSegments = path;
+  } else if (path) {
+    pathSegments = [path];
+  } else {
+    return ERROR_RESPONSE;
+  }
 
   if (pathSegments.length === 0) {
-    return createResponse({ error: 'Invalid redirect URL' }, 400);
+    return ERROR_RESPONSE;
   }
 
   // Build the redirect URL
   const redirectUrl = buildRedirectUrl(pathSegments);
-
   if (!redirectUrl) {
-    return createResponse({ error: 'Invalid redirect URL' }, 400);
+    return ERROR_RESPONSE;
   }
 
-  // Validate the URL
+  // Validate the URL efficiently
   try {
-    // Decode the URL in case it's encoded
-    const decodedUrl = decodeURIComponent(redirectUrl);
+    // Decode only if necessary (check for % encoding)
+    const decodedUrl = redirectUrl.includes('%') ? decodeURIComponent(redirectUrl) : redirectUrl;
 
-    // Use URL constructor to validate
-    // This will throw if the URL is invalid
+    // Use URL constructor to validate (throws on invalid URLs)
     const url = new URL(decodedUrl);
 
-    // Additional validation: ensure protocol is http or https
-    if (!['http:', 'https:'].includes(url.protocol)) {
-      return createResponse({ error: 'Invalid redirect URL' }, 400);
+    // Validate protocol (only http/https allowed)
+    const protocol = url.protocol;
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      return ERROR_RESPONSE;
     }
 
-    // If validation passes, perform 302 redirect
-    return createResponse('', 302, {
-      Location: decodedUrl,
-    });
+    // Use Response.redirect() for optimized 302 redirect
+    return Response.redirect(decodedUrl, 302);
   } catch {
     // URL validation failed
-    return createResponse({ error: 'Invalid redirect URL' }, 400);
+    return ERROR_RESPONSE;
   }
 }
 
 export async function OPTIONS() {
-  return createResponse('', 200);
+  // Pre-allocated OPTIONS response
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  });
 }
