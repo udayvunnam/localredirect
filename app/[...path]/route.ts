@@ -105,8 +105,46 @@ export async function GET(
       return ERROR_RESPONSE;
     }
 
+    // Preserve query parameters and hash from the original request
+    const requestUrl = new URL(request.url);
+
+    // Extract hash from query parameter (for API-to-API calls)
+    // Since HTTP requests don't include hash fragments, they can be passed as ?hash=value
+    let hashFragment = '';
+    const requestParams = new URLSearchParams(requestUrl.search);
+
+    // Check for hash in query params (supports both 'hash' and '_hash' keys)
+    const hashParam = requestParams.get('hash') || requestParams.get('_hash');
+    if (hashParam) {
+      // Remove hash from params so it doesn't appear in query string
+      requestParams.delete('hash');
+      requestParams.delete('_hash');
+      // Add # prefix if not already present
+      hashFragment = hashParam.startsWith('#') ? hashParam : `#${hashParam}`;
+    }
+
+    // Append query parameters if present (excluding hash params which we handled above)
+    if (requestParams.toString()) {
+      // If the redirect URL already has query params, merge them
+      if (url.search) {
+        const existingParams = new URLSearchParams(url.search);
+        // Merge params, with request params taking precedence
+        for (const [key, value] of requestParams.entries()) {
+          existingParams.set(key, value);
+        }
+        url.search = existingParams.toString();
+      } else {
+        url.search = requestParams.toString();
+      }
+    }
+
+    // Append hash fragment to the redirect URL
+    if (hashFragment) {
+      url.hash = hashFragment;
+    }
+
     // Use Response.redirect() for optimized 302 redirect
-    return Response.redirect(decodedUrl, 302);
+    return Response.redirect(url.toString(), 302);
   } catch {
     // URL validation failed
     return ERROR_RESPONSE;
