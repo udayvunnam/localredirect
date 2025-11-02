@@ -1,36 +1,177 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Local Redirect
 
-## Getting Started
+A minimal HTTPS redirect service for Vercel that enables OAuth callbacks and redirects to localhost during development. Perfect for local development workflows where you need to redirect to `localhost` with custom ports.
 
-First, run the development server:
+## Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- ✅ **Path-based redirects** - No query parameters needed
+- ✅ **Smart defaults** - Automatically uses `http://` for localhost, `https://` for domains
+- ✅ **Explicit scheme override** - Use `/http/` or `/https/` to specify the protocol
+- ✅ **Localhost support** - Redirects to `localhost`, `127.0.0.1`, and custom ports
+- ✅ **URL validation** - Ensures all redirects are valid before executing
+- ✅ **CORS enabled** - Includes `Access-Control-Allow-Origin: *` headers
+- ✅ **Beautiful help page** - Interactive documentation at the root URL
+
+## Usage
+
+### Explicit Scheme
+
+Specify the protocol explicitly in the path:
+
+```
+https://redirect.example.com/http/localhost:5173/callback
+→ http://localhost:5173/callback
+
+https://redirect.example.com/https/postonus.com/callback
+→ https://postonus.com/callback
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Smart Defaults
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The service automatically detects and applies defaults:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```
+https://redirect.example.com/localhost:5173/callback
+→ http://localhost:5173/callback (defaults to http)
 
-## Learn More
+https://redirect.example.com/postonus.com/callback
+→ https://postonus.com/callback (defaults to https)
 
-To learn more about Next.js, take a look at the following resources:
+https://redirect.example.com/127.0.0.1:3000/auth
+→ http://127.0.0.1:3000/auth (localhost detected)
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### OAuth Development
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Perfect for OAuth callbacks during local development:
 
-## Deploy on Vercel
+```
+# In your OAuth provider settings:
+https://redirect.example.com/localhost:5173/oauth/callback
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+# Or with explicit scheme:
+https://redirect.example.com/http/localhost:3000/auth/callback
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## API
+
+### GET `/`
+
+Shows the help page with usage documentation.
+
+### GET `/{scheme?}/{host}/{path...}`
+
+Performs a 302 redirect to the constructed URL.
+
+**Parameters:**
+- `scheme` (optional): `http` or `https`. If omitted, defaults are applied.
+- `host`: The target hostname (e.g., `localhost:5173`, `postonus.com`)
+- `path`: Additional path segments
+
+**Response:**
+- `302` - Redirect to the target URL
+- `400` - Invalid redirect URL
+- Help page if accessed at root without path
+
+**Headers:**
+- `Location`: Target URL (on 302)
+- `Access-Control-Allow-Origin: *`
+
+## Development
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm (recommended) or npm/yarn
+
+### Installation
+
+```bash
+pnpm install
+```
+
+### Run Development Server
+
+```bash
+pnpm dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) to see the help page.
+
+### Build for Production
+
+```bash
+pnpm build
+pnpm start
+```
+
+### Linting
+
+```bash
+pnpm lint
+```
+
+## Deployment
+
+### Deploy to Vercel
+
+This project is optimized for [Vercel](https://vercel.com) deployment:
+
+1. Push your code to GitHub
+2. Import the repository in Vercel
+3. Vercel will automatically detect Next.js and deploy
+
+Or use the Vercel CLI:
+
+```bash
+pnpm install -g vercel
+vercel
+```
+
+### Custom Domain Setup
+
+1. Add your custom domain in Vercel project settings
+2. Configure DNS records as instructed
+3. The service will be available at `https://yourdomain.com`
+
+### Environment Variables
+
+No environment variables required. The service is stateless and works out of the box.
+
+## Examples
+
+```bash
+# Redirect to localhost (defaults to http)
+curl -I https://redirect.example.com/localhost:5173/callback
+
+# Redirect to domain (defaults to https)
+curl -I https://redirect.example.com/example.com/auth
+
+# Explicit HTTP for domain
+curl -I https://redirect.example.com/http/example.com/path
+
+# Explicit HTTPS for localhost
+curl -I https://redirect.example.com/https/localhost:3000/api
+```
+
+## Architecture
+
+- **Framework**: Next.js 16 (App Router)
+- **Language**: TypeScript
+- **Styling**: Tailwind CSS
+- **Runtime**: Node.js (Vercel Serverless Functions)
+
+## Security
+
+- ✅ URL validation prevents open redirects
+- ✅ Only `http://` and `https://` protocols allowed
+- ✅ Proper error handling for invalid URLs
+- ✅ CORS headers included for cross-origin requests
+
+## License
+
+MIT
+
+## Contributing
+
+Contributions welcome! Please feel free to submit a Pull Request.

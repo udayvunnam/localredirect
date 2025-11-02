@@ -1,12 +1,24 @@
 {
   "name": "localredirect",
-  "version": "0.1.0",
-  "private": true,
+  "version": "1.0.0",
+  "description": "A minimal HTTPS redirect service for Vercel - perfect for OAuth callbacks and local development",
+  "keywords": [
+    "redirect",
+    "oauth",
+    "localhost",
+    "development",
+    "vercel",
+    "nextjs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "private": false,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "type-check": "tsc --noEmit"
   },
   "dependencies": {
     "react": "19.2.0",
