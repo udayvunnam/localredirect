@@ -8,6 +8,8 @@ A minimal HTTPS redirect service for Vercel that enables OAuth callbacks and red
 - ✅ **Smart defaults** - Automatically uses `http://` for localhost, `https://` for domains
 - ✅ **Explicit scheme override** - Use `/http/` or `/https/` to specify the protocol
 - ✅ **Localhost support** - Redirects to `localhost`, `127.0.0.1`, and custom ports
+- ✅ **Query parameter preservation** - Automatically preserves and forwards query parameters to the redirect target
+- ✅ **Hash fragment support** - Supports hash fragments via `?hash=` or `?_hash=` query parameter (perfect for API-to-API calls)
 - ✅ **URL validation** - Ensures all redirects are valid before executing
 - ✅ **CORS enabled** - Includes `Access-Control-Allow-Origin: *` headers
 - ✅ **Beautiful help page** - Interactive documentation at the root URL
@@ -53,6 +55,27 @@ https://redirect.example.com/localhost:5173/oauth/callback
 https://redirect.example.com/http/localhost:3000/auth/callback
 ```
 
+### Query Parameters and Hash Fragments
+
+Query parameters are automatically preserved and forwarded to the redirect target:
+
+```
+https://redirect.example.com/localhost:5173/callback?code=abc123&state=xyz
+→ http://localhost:5173/callback?code=abc123&state=xyz
+```
+
+For hash fragments (useful for API-to-API calls), use the `hash` or `_hash` query parameter:
+
+```
+https://redirect.example.com/localhost:5173/callback?hash=section&foo=bar
+→ http://localhost:5173/callback?foo=bar#section
+
+https://redirect.example.com/http/localhost:3000/auth?_hash=#token&code=abc
+→ http://localhost:3000/auth?code=abc#token
+```
+
+**Note:** Hash fragments cannot be preserved directly from browser requests (browsers don't send them to servers). Use the `?hash=` query parameter workaround for API-to-API calls.
+
 ## API
 
 ### GET `/`
@@ -67,6 +90,10 @@ Performs a 302 redirect to the constructed URL.
 - `scheme` (optional): `http` or `https`. If omitted, defaults are applied.
 - `host`: The target hostname (e.g., `localhost:5173`, `postonus.com`)
 - `path`: Additional path segments
+
+**Query Parameters:**
+- Any query parameters in the request URL are automatically forwarded to the redirect target
+- Use `?hash=<value>` or `?_hash=<value>` to include a hash fragment in the redirect URL (the hash parameter itself won't appear in the final query string)
 
 **Response:**
 - `302` - Redirect to the target URL
@@ -152,6 +179,12 @@ curl -I https://redirect.example.com/http/example.com/path
 
 # Explicit HTTPS for localhost
 curl -I https://redirect.example.com/https/localhost:3000/api
+
+# With query parameters (preserved in redirect)
+curl -I "https://redirect.example.com/localhost:5173/callback?code=abc123&state=xyz"
+
+# With hash fragment (via query parameter)
+curl -I "https://redirect.example.com/localhost:5173/callback?hash=section&foo=bar"
 ```
 
 ## Architecture
