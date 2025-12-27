@@ -21,10 +21,10 @@ A minimal HTTPS redirect service for Vercel that enables OAuth callbacks and red
 Specify the protocol explicitly in the path:
 
 ```
-https://redirect.example.com/http/localhost:5173/callback
+https://localredirect.vercel.app/http/localhost:5173/callback
 → http://localhost:5173/callback
 
-https://redirect.example.com/https/postonus.com/callback
+https://localredirect.vercel.app/https/postonus.com/callback
 → https://postonus.com/callback
 ```
 
@@ -33,13 +33,13 @@ https://redirect.example.com/https/postonus.com/callback
 The service automatically detects and applies defaults:
 
 ```
-https://redirect.example.com/localhost:5173/callback
+https://localredirect.vercel.app/localhost:5173/callback
 → http://localhost:5173/callback (defaults to http)
 
-https://redirect.example.com/postonus.com/callback
+https://localredirect.vercel.app/postonus.com/callback
 → https://postonus.com/callback (defaults to https)
 
-https://redirect.example.com/127.0.0.1:3000/auth
+https://localredirect.vercel.app/127.0.0.1:3000/auth
 → http://127.0.0.1:3000/auth (localhost detected)
 ```
 
@@ -49,10 +49,10 @@ Perfect for OAuth callbacks during local development:
 
 ```
 # In your OAuth provider settings:
-https://redirect.example.com/localhost:5173/oauth/callback
+https://localredirect.vercel.app/localhost:5173/oauth/callback
 
 # Or with explicit scheme:
-https://redirect.example.com/http/localhost:3000/auth/callback
+https://localredirect.vercel.app/http/localhost:3000/auth/callback
 ```
 
 ### Query Parameters and Hash Fragments
@@ -60,17 +60,17 @@ https://redirect.example.com/http/localhost:3000/auth/callback
 Query parameters are automatically preserved and forwarded to the redirect target:
 
 ```
-https://redirect.example.com/localhost:5173/callback?code=abc123&state=xyz
+https://localredirect.vercel.app/localhost:5173/callback?code=abc123&state=xyz
 → http://localhost:5173/callback?code=abc123&state=xyz
 ```
 
 For hash fragments (useful for API-to-API calls), use the `hash` or `_hash` query parameter:
 
 ```
-https://redirect.example.com/localhost:5173/callback?hash=section&foo=bar
+https://localredirect.vercel.app/localhost:5173/callback?hash=section&foo=bar
 → http://localhost:5173/callback?foo=bar#section
 
-https://redirect.example.com/http/localhost:3000/auth?_hash=#token&code=abc
+https://localredirect.vercel.app/http/localhost:3000/auth?_hash=#token&code=abc
 → http://localhost:3000/auth?code=abc#token
 ```
 
@@ -87,20 +87,24 @@ Shows the help page with usage documentation.
 Performs a 302 redirect to the constructed URL.
 
 **Parameters:**
+
 - `scheme` (optional): `http` or `https`. If omitted, defaults are applied.
 - `host`: The target hostname (e.g., `localhost:5173`, `postonus.com`)
 - `path`: Additional path segments
 
 **Query Parameters:**
+
 - Any query parameters in the request URL are automatically forwarded to the redirect target
 - Use `?hash=<value>` or `?_hash=<value>` to include a hash fragment in the redirect URL (the hash parameter itself won't appear in the final query string)
 
 **Response:**
+
 - `302` - Redirect to the target URL
 - `400` - Invalid redirect URL
 - Help page if accessed at root without path
 
 **Headers:**
+
 - `Location`: Target URL (on 302)
 - `Access-Control-Allow-Origin: *`
 
@@ -169,22 +173,22 @@ No environment variables required. The service is stateless and works out of the
 
 ```bash
 # Redirect to localhost (defaults to http)
-curl -I https://redirect.example.com/localhost:5173/callback
+curl -I https://localredirect.vercel.app/localhost:5173/callback
 
 # Redirect to domain (defaults to https)
-curl -I https://redirect.example.com/example.com/auth
+curl -I https://localredirect.vercel.app/example.com/auth
 
 # Explicit HTTP for domain
-curl -I https://redirect.example.com/http/example.com/path
+curl -I https://localredirect.vercel.app/http/example.com/path
 
 # Explicit HTTPS for localhost
-curl -I https://redirect.example.com/https/localhost:3000/api
+curl -I https://localredirect.vercel.app/https/localhost:3000/api
 
 # With query parameters (preserved in redirect)
-curl -I "https://redirect.example.com/localhost:5173/callback?code=abc123&state=xyz"
+curl -I "https://localredirect.vercel.app/localhost:5173/callback?code=abc123&state=xyz"
 
 # With hash fragment (via query parameter)
-curl -I "https://redirect.example.com/localhost:5173/callback?hash=section&foo=bar"
+curl -I "https://localredirect.vercel.app/localhost:5173/callback?hash=section&foo=bar"
 ```
 
 ## Architecture
